@@ -45,23 +45,52 @@ fn find_closest_view<'a>(lf: &'a Lightfield, centerpos: &Vector2<f32>) -> &'a Li
 }
 
 const PATCH_RADIUS: u32 = 3;
+const NCHAN:usize = 3;
 /// number of samples
-const PATCH_LEN: usize = ((PATCH_RADIUS + 1) * (PATCH_RADIUS + 1)) as usize;
+const PATCH_LEN: usize = NCHAN * ((PATCH_RADIUS*2 + 1) * (PATCH_RADIUS*2 + 1)) as usize;
 struct ImagePatch {
-    data: [u32; PATCH_LEN as usize],
+    data: [u8; PATCH_LEN as usize],
 }
 
 impl ImagePatch {
     pub fn new() -> ImagePatch {
         return ImagePatch { data: [0; PATCH_LEN] };
     }
+    pub fn cmp(&self, other: &ImagePatch) -> f32 {
+        let mut res = 0i32;
+        for (a,b) in self.data.iter().zip(other.data.iter()) {
+            let d = (*a as i32) - (*b as i32);
+            res += d*d;
+        }
+        res as f32
+    }
 }
 
 /// return false for out of bounds access
-fn get_patch(img: &DynamicImage, pos: &Vector2<f32>, out: &mut ImagePatch) -> bool {
+fn get_patch(img: &DynamicImage, posf: &Vector2<f32>, out: &mut ImagePatch) -> bool {
+    // TODO: maybe implement subpixel accuracy! for now, round this stuff...
+    let pos = Vector2::<u32>::new(posf.x.round() as u32, posf.y.round() as u32);
+    let miny = pos.y-PATCH_RADIUS;
+    let maxy = pos.y+PATCH_RADIUS;
+    let minx = pos.x-PATCH_RADIUS;
+    let maxx = pos.x+PATCH_RADIUS;
+    if (minx as i32) < 0 || (miny as i32) < 0 || maxx >= img.width() || maxy >= img.height() {
+        return false
+    }
+    let mut idx = 0;
+    for y in miny..maxy+1 {
+        for x in minx..maxx+1 {
+            let p = img.get_pixel(x,y);
+            let c = p.channels();
+            out.data[idx+0] = c[0];
+            out.data[idx+1] = c[1];
+            out.data[idx+2] = c[2];
+            idx += 3;
+        }
+    }
     // TODO: maybe blur first?
     // TODO implement me
-    return false;
+    return true;
 }
 
 fn min<T: PartialOrd>(a: T, b: T) -> T {
@@ -119,7 +148,7 @@ fn find_correspondences(lf: &Lightfield, mainview: &LightfieldView, pos: &Vector
                 break;
             }
             cur += search_step;
-            // let diff = main_patch.cmp(test_patch);
+            let diff = main_patch.cmp(&test_patch);
         }
         if DEBUG_IMAGES {
             let name = format!("debug_{}.jpg", cnt);
