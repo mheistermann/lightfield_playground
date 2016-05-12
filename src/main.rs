@@ -172,5 +172,14 @@ fn main() {
     // Assume all images have the same dimensions and color format!
     let img = &centerview.image;
     let center = Vector2::<u32>::new(img.width(), img.height()) / 2;
+
+
+    // TODO: search vectors are independent of position, so compute them first.
+    // then compute search step vectors for each view.
+    //
+    // maybe: ransac-like random subset?
+    // maybe: 2 random views, align (rotation) so we can have a stereo line search
+    // combine line search results
+    // maybe find a way to refine?
     find_correspondences(&lf, centerview, &center);
 }
